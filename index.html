@@ -2,11 +2,140 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Walking Character Comparison</title>
-<style>
-body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#111;color:#fff;font-family:Arial,sans-serif;text-align:center}main{padding:40px}h1{font-size:clamp(32px,6vw,64px);margin:0 0 16px}p{font-size:20px;color:#bbb} .status{display:inline-block;margin-top:20px;padding:12px 20px;border:1px solid #555;border-radius:10px}
-</style>
+<meta name="description" content="Make height-comparison videos: upload walking frames for each character, see them side by side at true scale, and export an HD MP4.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow+Semi+Condensed:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
-<body><main><h1>Walking Character Comparison</h1><p>Website is live.</p><div class="status">Ready for animation frames</div></main></body>
+<body>
+
+<header class="top">
+  <h1>Walking Character Comparison</h1>
+  <div class="project-actions">
+    <button type="button" class="btn ghost" id="saveProject">Save project</button>
+    <label class="btn ghost file-btn">Load project
+      <input type="file" id="loadProject" accept=".json,application/json" class="vh">
+    </label>
+  </div>
+</header>
+<div class="ruler-strip" aria-hidden="true"></div>
+
+<div class="app">
+
+  <!-- ============ SETTINGS (left) ============ -->
+  <aside class="settings" aria-label="Settings">
+    <h2>Settings</h2>
+
+    <section aria-labelledby="mainHead">
+      <h3 id="mainHead">Main character</h3>
+      <p class="sub">Stays on screen, walking in place. Everyone else is measured against this one.</p>
+      <div id="mainChar"></div>
+    </section>
+
+    <section aria-labelledby="othersHead">
+      <h3 id="othersHead">Other characters</h3>
+      <p class="sub">They walk in one by one, in this order.</p>
+      <div id="otherChars"></div>
+      <button type="button" class="btn wide" id="addChar">+ Add another character</button>
+    </section>
+
+    <section aria-labelledby="sceneHead" class="scene">
+      <h3 id="sceneHead">Scene</h3>
+
+      <div class="row">
+        <label for="bg">Background</label>
+        <select id="bg" data-setting="bg">
+          <option value="stadium">Stadium at night</option>
+          <option value="studio">Light studio</option>
+          <option value="grid">Measuring grid</option>
+          <option value="green">Green screen</option>
+          <option value="color">Solid colour</option>
+          <option value="image">My own image</option>
+        </select>
+      </div>
+      <div class="row" id="bgColorRow" hidden>
+        <label for="bgColor">Colour</label>
+        <input type="color" id="bgColor" data-setting="bgColor">
+      </div>
+      <div class="row" id="bgImageRow" hidden>
+        <label for="bgImage">Image</label>
+        <input type="file" id="bgImage" accept="image/*">
+      </div>
+
+      <div class="slider"><label for="ground">Ground level</label><input type="range" id="ground" data-setting="ground" min="0.6" max="0.96" step="0.005"><output></output></div>
+      <div class="slider"><label for="figFrac">Tallest character fills</label><input type="range" id="figFrac" data-setting="figFrac" min="0.3" max="0.85" step="0.01"><output></output></div>
+      <div class="slider"><label for="mainX">Main character position</label><input type="range" id="mainX" data-setting="mainX" min="160" max="900" step="10"><output></output></div>
+      <div class="slider"><label for="gap">Gap beside main</label><input type="range" id="gap" data-setting="gap" min="120" max="800" step="10"><output></output></div>
+
+      <div class="slider"><label for="walkFps">Steps (frames per second)</label><input type="range" id="walkFps" data-setting="walkFps" min="2" max="24" step="1"><output></output></div>
+      <div class="slider"><label for="speed">Walking pace</label><input type="range" id="speed" data-setting="speed" min="80" max="900" step="10"><output></output></div>
+      <div class="slider"><label for="hold">Stand beside main for</label><input type="range" id="hold" data-setting="hold" min="0.5" max="12" step="0.5"><output></output></div>
+      <div class="slider"><label for="overlap">Next one starts early by</label><input type="range" id="overlap" data-setting="overlap" min="0" max="6" step="0.5"><output></output></div>
+      <div class="slider"><label for="intro">Lead-in</label><input type="range" id="intro" data-setting="intro" min="0" max="6" step="0.5"><output></output></div>
+      <div class="slider"><label for="outro">Lead-out</label><input type="range" id="outro" data-setting="outro" min="0" max="6" step="0.5"><output></output></div>
+      <div class="slider"><label for="labelSize">Name plate size</label><input type="range" id="labelSize" data-setting="labelSize" min="0.6" max="1.6" step="0.05"><output></output></div>
+
+      <label class="chk"><input type="checkbox" data-setting="shadow"> Soft shadow under feet</label>
+      <label class="chk"><input type="checkbox" data-setting="guide"> Dashed line at main character's height</label>
+      <label class="chk"><input type="checkbox" data-setting="ruler"> Centimetre ruler on the left</label>
+    </section>
+  </aside>
+
+  <!-- ============ STAGE (right) ============ -->
+  <main class="stage-col">
+    <div class="stage-wrap">
+      <canvas id="stage" width="1280" height="720" aria-label="Preview of the height comparison"></canvas>
+    </div>
+
+    <div class="transport">
+      <button type="button" class="play" id="play" aria-label="Play">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path id="playIcon" d="M7 4.5v15l12-7.5z" fill="currentColor"/></svg>
+      </button>
+      <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Timeline">
+      <span class="time" id="timeText">0:00 / 0:00</span>
+      <label class="chk loop"><input type="checkbox" id="loop" checked> Loop</label>
+    </div>
+
+    <section class="export" aria-labelledby="exportHead">
+      <h3 id="exportHead">Export video</h3>
+      <div class="export-row">
+        <div class="row stack">
+          <label for="expRes">Resolution</label>
+          <select id="expRes">
+            <option value="1280x720">HD 720p</option>
+            <option value="1920x1080" selected>Full HD 1080p</option>
+            <option value="2560x1440">2K 1440p</option>
+            <option value="3840x2160">4K 2160p</option>
+          </select>
+        </div>
+        <div class="row stack">
+          <label for="expFps">Frame rate</label>
+          <select id="expFps">
+            <option value="24">24 fps</option>
+            <option value="30" selected>30 fps</option>
+            <option value="60">60 fps</option>
+          </select>
+        </div>
+        <button type="button" class="btn primary" id="exportBtn">Export MP4</button>
+        <button type="button" class="btn ghost" id="cancelBtn" hidden>Cancel</button>
+      </div>
+      <p class="export-info" id="exportInfo"></p>
+      <progress id="progress" max="1" value="0" hidden></progress>
+      <p class="status" id="exportStatus" role="status" aria-live="polite"></p>
+      <div id="result" hidden>
+        <video id="resultVideo" controls playsinline></video>
+        <a id="resultLink" class="btn ghost" download>Download again</a>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="vendor/mp4-muxer.js"></script>
+<script src="app.js"></script>
+</body>
 </html>
